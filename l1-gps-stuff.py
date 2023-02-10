@@ -28,44 +28,94 @@
 import serial
 import time
 import datetime
+import glob
+import os
+
+#change this as needed to use the correct UART
+uart = '/dev/ttyAMA1'
 
 #pre compute some things
 week2seconds = 7 * 24 * 60 * 60
 epochfixup = 315964800.0
 
-#open connection
+# it is possible to have a very old time stamp
+# trapped in the MkrZero buffer
+# it might be a good idea to itnore the
+# first time stamp
+first_time = 1
+
+# filename generation stuff
+# check for data subdirectory
+os.makedirs('data', exist_ok=True)
+
+try:
+    #look into directory and try and find the last file written
+    LatestFile = max(glob.iglob('data/*.dat'),key=os.path.getctime)
+    #extract the file number using our name_######.dat convention
+    temp = LatestFile.partition("_")[2].partition('.')[0]
+    lastindex = int(temp)
+except:
+    lastindex = 0
+
+filename = "data/L1_"
+filename_counter = lastindex+1
+
+# test data
+dummy_data = []
+dummy_data = [0 for i in range(4096)] 
+
+#open serial connection
 ser = serial.Serial(
-    port='/dev/ttyAMA1',
+    port = uart,
     baudrate = 115200,
-    parity=serial.PARITY_NONE,
-    stopbits=serial.STOPBITS_ONE,
-    bytesize=serial.EIGHTBITS,
-    timeout=10
+    parity = serial.PARITY_NONE,
+    stopbits = serial.STOPBITS_ONE,
+    bytesize = serial.EIGHTBITS,
+    timeout = 1  #in seconds
 )
+
+# clear buffers in case there is stale data
+ser.reset_input_buffer()
+ser.reset_output_buffer()
 
 while True :
     #begin polling for new gps data
     #poll at 500ms interval for testing
-    #print results
+        #print results
     ser.write(b'G');
     x = ser.readline().decode()
     gps = [int(i) for i in x.split() if i.lstrip('-').isdigit()]
-    count = gps[0]
-    week = gps[1]
-    ms = gps[2]
-    ns = gps[3]
-    accEst = gps[4]
+    if len(gps) == 5:
+        count = gps[0]
+        week = gps[1]
+        ms = gps[2]
+        ns = gps[3]
+        accEst = gps[4]
+    else:
+        count = -1 #error, insufficient data
+
     if count == -1 :
         pass # nothing to see here, move along
     else:
-        # convert to UTC
-        seconds = (week * week2seconds) + (ms / 1000.0) + epochfixup + (ns / 1.0e6)
-        epoch = time.gmtime(seconds)
-        fraction = seconds - int(seconds)
-        nice = time.strftime('%Y-%m-%d %H:%M:%S', epoch)
-        nice = nice + '.' +  str(int(fraction*1.0e6))
-        #print(f'seconds={seconds}')
-        print("L1 @", nice)
+        if first_time == 1:
+            #probably stale data
+            first_time = 0
+            print("Stale data in MKRZero buffer")
+        else:
+            # convert to UTC
+            seconds = (week * week2seconds) + (ms / 1000.0) + epochfixup + (ns / 1.0e6)
+            epoch = time.gmtime(seconds)
+            fraction = seconds - int(seconds)
+            nice = time.strftime('%Y-%m-%d %H:%M:%S', epoch)
+            nice = "L1 @ " + nice + '.' +  str(int(fraction*1.0e6))
+            print(nice)
+
+            fn = filename + f'{filename_counter:06d}' + ".dat"
+            with open(fn, 'a') as f: # open in append mode please
+                f.write('\n\n'+nice+'\n')
+                f.write(x + '\n')
+                f.write(str(dummy_data))
+                f.write('\n\n')
 
     time.sleep(0.500) # this should probably be done in a non-blocking fashion
 
