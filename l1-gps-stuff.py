@@ -83,16 +83,19 @@ while True :
     #poll at 500ms interval for testing
         #print results
     ser.write(b'G');
-    x = ser.readline().decode()
-    gps = [int(i) for i in x.split() if i.lstrip('-').isdigit()]
-    if len(gps) == 5:
-        count = gps[0]
-        week = gps[1]
-        ms = gps[2]
-        ns = gps[3]
-        accEst = gps[4]
-    else:
-        count = -1 #error, insufficient data
+    try:
+        x = ser.readline().decode()
+        gps = [int(i) for i in x.split() if i.lstrip('-').isdigit()]
+        if len(gps) == 5:
+            count = gps[0]
+            week = gps[1]
+            ms = gps[2]
+            ns = gps[3]
+            accEst = gps[4]
+        else:
+            count = -1 #error, insufficient data
+    except:
+        count = -1
 
     if count == -1 :
         pass # nothing to see here, move along
@@ -116,6 +119,8 @@ while True :
                 f.write(x + '\n')
                 f.write(str(dummy_data))
                 f.write('\n\n')
+
+            counter = counter + 1
 
     time.sleep(0.500) # this should probably be done in a non-blocking fashion
 
