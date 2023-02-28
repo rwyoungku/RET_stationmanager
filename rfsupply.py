@@ -1,3 +1,15 @@
+"""Test control of RF Supply Board
+
+Test control of RET RF Supply board by setting various conditions.
+Get FW version number from RF Supply board.
+Set high and low MPPT cutoff voltages.
+Clear pending faults.
+Set to ignore all future faults.
+Turn on channels in sequence, 1-8, with one second pause between.
+Wait 10 seconds
+Turn off channels in sequence, 8-1, with 1/2 second pause between.
+"""
+
 import serial
 import time
 
